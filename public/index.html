@@ -1,0 +1,24 @@
+<html>
+
+<head>
+    <title>hello</title>
+    <script src="main.js"></script>
+</head>
+
+<body>
+    <button onclick="getEntities()">Get entities</button>
+    <ul id="devicesList"></ul>
+    <label for="gatheringModeAppend">Append</label><input id="gatheringModeAppend" type="radio" name="gatheringMode"
+        value="append">
+    <label for="gatheringModeNew">New</label><input id="gatheringModeNew" type="radio" name="gatheringMode" value="new">
+    <button onclick="toggleGathering(this)">Start Gathering</button>
+    <div>
+        <button onclick="changeRoom('living room')">living room</button>
+        <button onclick="changeRoom('kitchen')">kitchen</button>
+        <button onclick="changeRoom('bedroom')">bedroom</button>
+    </div>
+    <button onclick="toggleTraining(this)">Start Training</button>
+    <div id="room"></div>
+</body>
+
+</html>

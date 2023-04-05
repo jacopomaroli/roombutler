@@ -1,0 +1,5 @@
+data
+test/assets/bank-marketing.csv
+.pytest_cache
+__pycache__
+.env
