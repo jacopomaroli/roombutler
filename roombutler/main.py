@@ -31,7 +31,7 @@ nodes_list = []
 train_data = None
 cols = []
 model = None
-is_training = True
+is_training = False
 
 
 class ConnectionManager:
@@ -203,6 +203,7 @@ async def ws_client():
                     'type': 'room',
                     'payload': {
                         'room': y_predicted,
+                        'node': entity["state"],
                         'deviceId': entity["id"]
                     }
                 }

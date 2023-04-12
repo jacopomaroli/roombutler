@@ -1,4 +1,31 @@
-class RESTClient extends EventTarget {
+class Emitter {
+  constructor() {
+    this._handlers = {}
+  }
+
+  dispatch(handlerName, ...data) {
+    if (!this._handlers[handlerName]) {
+      return
+    }
+    for (const handler of this._handlers[handlerName]) {
+      handler(...data)
+    }
+  }
+
+  on(handlerName, handlerFn) {
+    (this._handlers[handlerName] = this._handlers[handlerName] || [])
+        .push(handlerFn)
+  }
+
+  off(handlerName, handlerFn) {
+    const index = this._handlers[handlerName].indexOf(handlerFn)
+    if (index > -1) {
+      this._handlers[handlerName].splice(index, 1)
+    }
+  }
+}
+
+class RESTClient extends Emitter {
   constructor() {
     super();
     this.ws
@@ -49,7 +76,7 @@ class RESTClient extends EventTarget {
   }
 
   connectWS() {
-    this.ws = new WebSocket('ws://localhost:8000/ws');
+    this.ws = new WebSocket(`ws://${location.host}/ws`);
 
     this.ws.onopen = this.onopenWS.bind(this);
     this.ws.onmessage = this.onmessageWS.bind(this);
@@ -68,15 +95,15 @@ class RESTClient extends EventTarget {
       'training',
     ];
     if (whitelist.includes(type)) {
-      this.dispatchEvent(new CustomEvent(type, {detail: payload}));
+      this.dispatch(type, payload);
     }
   }
 }
 
 const restClient = new RESTClient()
-restClient.addEventListener('pong', () => console.log('pong'))
-restClient.addEventListener('room', msgRoomHandler)
-restClient.addEventListener('training', msgTrainingHandler)
+restClient.on('pong', () => console.log('pong'))
+restClient.on('room', msgRoomHandler)
+restClient.on('training', msgTrainingHandler)
 restClient.connectWS()
 
 let deviceId = null
@@ -161,15 +188,15 @@ async function toggleTraining(el) {
   el.disabled = false
 }
 
-function msgRoomHandler(e) {
-  const msg = e.detail
+function msgRoomHandler(msg) {
   if (msg.deviceId !== deviceId) return;
-  const el = document.getElementById('room')
-  el.innerText = msg.room
+  const roomEl = document.querySelector('#currentRoom .room')
+  roomEl.innerText = msg.room
+  const nodeEl = document.querySelector('#currentNode .node')
+  nodeEl.innerText = msg.node
 }
 
-function msgTrainingHandler(e) {
-  const msg = e.detail
+function msgTrainingHandler(msg) {
   const trainingDetailsEl = document.getElementById('trainingDetails')
   if (msg.state === 'started') {
     trainingDetailsEl.classList.add('training')
