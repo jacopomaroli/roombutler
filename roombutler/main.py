@@ -14,6 +14,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, ConfusionMatrixDisplay
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 import pickle
+from operator import itemgetter
+from scipy.stats import randint
 
 app = FastAPI()
 
@@ -29,6 +31,7 @@ nodes_list = []
 train_data = None
 cols = []
 model = None
+is_training = True
 
 
 class ConnectionManager:
@@ -126,13 +129,14 @@ def delete_gathering():
 
 class PostTraining(BaseModel):
     deviceId: str
+    optimize: bool
 
 
 @app.post("/api/training")
 def post_training(postTraining: PostTraining):
     global training_thread_instance
     training_thread_instance = threading.Thread(
-        target=training_thread, args=(postTraining.deviceId,))
+        target=training_thread, args=(postTraining.deviceId, postTraining.optimize))
     training_thread_instance.start()
 
 
@@ -152,6 +156,9 @@ async def websocket_endpoint(websocket: WebSocket):
             # await websocket.send_text(f"Message text was: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+# Warning! Needs to be after every other handler!
+app.mount("/", StaticFiles(directory="public", html=True), name="public")
 
 
 async def consumer(websocket, msg_str):
@@ -190,34 +197,51 @@ async def ws_client():
         await websocket.send(subscribeStr)
         async for message in websocket:
             msg = json.loads(message)
-            if (entity := msg.get("entity")) and (device := devices.get(entity["id"])):
+            if is_training == False and (entity := msg.get("entity")) and (device := devices.get(entity["id"])):
                 y_predicted = get_prediction(model, nodes_list, msg)
                 res_msg = {
                     'type': 'room',
-                    'room': y_predicted,
-                    'deviceId': entity["id"]
+                    'payload': {
+                        'room': y_predicted,
+                        'deviceId': entity["id"]
+                    }
                 }
                 await manager.broadcast(json.dumps(res_msg))
                 if device['room'] and device['is_gathering'] == True:
                     append_train_data(train_data, nodes_list,
                                       device['room'], msg)
 
-app.mount("/", StaticFiles(directory="public", html=True), name="public")
 
-
-def training_thread(deviceId):
-    df = pd.read_csv("data/room-location.csv")
-
+def train_model(df, deviceId, optimize):
     df = df.loc[df['deviceId'] == deviceId]
     df['room'] = df['room'].map({'living room': 0, 'bedroom': 1})
     df = df.drop('deviceId', axis=1)
 
     X = df.drop('room', axis=1)
     y = df['room']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.7)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    rf = RandomForestClassifier(n_estimators=10, max_depth=7)
-    rf.fit(X_train, y_train)
+    if optimize:
+        param_dist = {'n_estimators': randint(50, 500),
+                      'max_depth': randint(1, 20)}
+
+        # Create a random forest classifier
+        rf_blank = RandomForestClassifier()
+
+        # Use random search to find the best hyperparameters
+        rand_search = RandomizedSearchCV(
+            rf_blank, param_distributions=param_dist, n_iter=5, cv=5)
+
+        # Fit the random search object to the data
+        rand_search.fit(X_train, y_train)
+
+        rf = rand_search.best_estimator_
+
+        # Print the best hyperparameters
+        print('Best hyperparameters:',  rand_search.best_params_)
+    else:
+        rf = RandomForestClassifier(n_estimators=10, max_depth=7)
+        rf.fit(X_train, y_train)
 
     y_pred = rf.predict(X_test)
 
@@ -229,7 +253,51 @@ def training_thread(deviceId):
     print("Precision:", precision)
     print("Recall:", recall)
 
-    pickle.dump(rf, open('random_forest.pickle', "wb"))
+    return {
+        'rf': rf,
+        'stats': {
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall
+        }
+    }
+
+
+async def training_thread_main(deviceId, optimize):
+    global is_training
+    msg = {
+        'type': 'training',
+        'payload': {
+            'state': 'started',
+            'deviceId': deviceId
+        }
+    }
+    await manager.broadcast(json.dumps(msg))
+
+    is_training = True
+    df = pd.read_csv("data/room-location.csv")
+    train_model_ret = train_model(df, deviceId, optimize)
+    rf, stats = itemgetter('rf', 'stats')(train_model_ret)
+    pickle.dump(rf, open('data/random_forest.pickle', "wb"))
+    is_training = False
+
+    msg = {
+        'type': 'training',
+        'payload': {
+            'state': 'finished',
+            'deviceId': deviceId,
+            'stats': stats
+        }
+    }
+    await manager.broadcast(json.dumps(msg))
+
+
+def training_thread(deviceId, optimize):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(training_thread_main(deviceId, optimize))
+    loop.close()
 
 
 def instance2node(x):

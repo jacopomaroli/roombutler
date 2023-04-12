@@ -1,0 +1,36 @@
+*{margin:0; padding:0;}
+html { height: 100%; width: 100%; }
+body { height: 100%; display: flex; flex-direction: column; align-content: center; flex-wrap: wrap;}
+button { font-size: 30px; line-height: 35px; background: none; border: none; color:#000;}
+button:hover{cursor: pointer;}
+#root{display: flex; flex-wrap: wrap;}
+#entities{width:300px; display: flex; flex-direction: column;}
+#entities > button {align-self: end;}
+#actions {width:300px;}
+.actionOptions{width:100%}
+.actionOptions button{text-align: left; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+#devicesList{}
+#devicesList li{list-style: none;}
+#devicesList button{text-align: left; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+#actionDetails{width:300px; display: flex;}
+#actionDetails .hidden{display: none;}
+#roomsList button{text-align: left; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+#roomsList li{list-style: none;}
+.sectionTitle{font-size:20px;}
+#trainingDetails {flex-grow:1;}
+#trainingDetails > div{ width:100%; text-align: center; }
+#trainingDetails .spinner{display: none;}
+#trainingDetails.training .text{display: none;}
+#trainingDetails.training .spinner{display: block;}
+
+
+@media only screen
+  and (min-device-width: 375px)
+  and (max-device-width: 812px) {
+    #root{width: 100%; padding:50px 20px; box-sizing: border-box;}
+    #entities{width:100%;}
+    #actions {width:100%;}
+    #actionDetails {width:100%;}
+    .actionOptions{font-size: 50px; line-height: 60px;}
+    .actionOptions input{width: 40px; height: 40px;}
+}

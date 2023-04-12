@@ -1,24 +1,96 @@
 <html>
 
 <head>
-    <title>hello</title>
+    <title>roombutler</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="main.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 
 <body>
-    <button onclick="getEntities()">Get entities</button>
-    <ul id="devicesList"></ul>
-    <label for="gatheringModeAppend">Append</label><input id="gatheringModeAppend" type="radio" name="gatheringMode"
-        value="append">
-    <label for="gatheringModeNew">New</label><input id="gatheringModeNew" type="radio" name="gatheringMode" value="new">
-    <button onclick="toggleGathering(this)">Start Gathering</button>
-    <div>
-        <button onclick="changeRoom('living room')">living room</button>
-        <button onclick="changeRoom('kitchen')">kitchen</button>
-        <button onclick="changeRoom('bedroom')">bedroom</button>
+    <div id="root">
+        <div id="entities">
+            <div class="sectionTitle">1. Select the entity</div>
+            <button class="waves-effect waves-light btn-large" onclick="getEntities()">
+                <i class="material-icons">cached</i></button>
+            <ul id="devicesList"></ul>
+        </div>
+        <div id="actions">
+            <div class="sectionTitle">2. Select the action</div>
+            <div id="gatheringOptions" class="actionOptions">
+                <div id="gatheringMode">
+                    <label for="gatheringModeAppend">
+                        <input id="gatheringModeAppend" type="radio" name="gatheringMode" value="append" checked>
+                        <span>Append</span>
+                    </label>
+                    <label for="gatheringModeNew">
+                        <input id="gatheringModeNew" type="radio" name="gatheringMode" value="new">
+                        <span>New</span>
+                    </label>
+                </div>
+                <button class="waves-effect waves-light btn-large" onclick="toggleGathering(this)">Start
+                    Gathering</button>
+            </div>
+            <div id="trainingOptions" class="actionOptions">
+                <div id="trainingMode">
+                    <label for="trainingModeSimple">
+                        <input id="trainingModeSimple" type="radio" name="trainingMode" value="fixedWeights" checked>
+                        <span>Fixed weights</span>
+                    </label>
+                    <label for="trainingModeOptimize">
+                        <input id="trainingModeOptimize" type="radio" name="trainingMode" value="Optimize">
+                        <span>Optimize</span>
+                    </label>
+                </div>
+                <button id="startStopTrainingBtn" class="waves-effect waves-light btn-large"
+                    onclick="toggleTraining(this)">Start
+                    Training</button>
+            </div>
+        </div>
+        <div id="actionDetails">
+            <div id="gatheringDetails" class="hidden">
+                <div class="sectionTitle">3. Change the room</div>
+                <ul id="roomsList">
+                    <li><button class="waves-effect waves-light btn-large" onclick="changeRoom('')">NULL</button></li>
+                    <li><button class="waves-effect waves-light btn-large" onclick="changeRoom('living room')">living
+                            room</button></li>
+                    <li><button class="waves-effect waves-light btn-large"
+                            onclick="changeRoom('kitchen')">kitchen</button>
+                    </li>
+                    <li><button class="waves-effect waves-light btn-large"
+                            onclick="changeRoom('bedroom')">bedroom</button>
+                    </li>
+                </ul>
+                <div id="currentRoomSection">
+                    Current room: <span id="room">N/A</span>
+                </div>
+            </div>
+            <div id="trainingDetails" class="hidden valign-wrapper">
+                <div class="spinner">
+                    <div class="preloader-wrapper big active">
+                        <div class="spinner-layer spinner-blue-only">
+                            <div class="circle-clipper left">
+                                <div class="circle"></div>
+                            </div>
+                            <div class="gap-patch">
+                                <div class="circle"></div>
+                            </div>
+                            <div class="circle-clipper right">
+                                <div class="circle"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text">
+                    Ready to go!
+                </div>
+            </div>
+        </div>
     </div>
-    <button onclick="toggleTraining(this)">Start Training</button>
-    <div id="room"></div>
+    </div>
 </body>
 
 </html>

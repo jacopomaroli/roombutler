@@ -24,7 +24,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 
 def test_estimator_fixed_params():
-    rf = RandomForestClassifier(n_estimators=10, max_depth=7)
+    n_estimators = 10
+    max_depth = 7
+    rf = RandomForestClassifier(n_estimators, max_depth)
     rf.fit(X_train, y_train)
 
     y_pred = rf.predict(X_test)

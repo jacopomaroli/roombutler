@@ -1,52 +1,87 @@
+class RESTClient extends EventTarget {
+  constructor() {
+    super();
+    this.ws
+  }
+
+  async req({path, method, data}) {
+    const {qs, body} = method.toLowerCase() === 'get' ?
+        {qs: `?${new URLSearchParams(data).toString()}`} :
+        {body: JSON.stringify(data)};
+    const res = await fetch(path + (qs || ''), {
+      method,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body
+    })
+
+    return res.json()
+  }
+
+  async changeRoom(name, deviceId) {
+    const data = {name, deviceId};
+    return this.req({path: '/api/room', method: 'POST', data})
+  }
+
+  async startGathering(action, deviceId) {
+    const data = {action, deviceId};
+    return this.req({path: '/api/gathering', method: 'POST', data})
+  }
+
+  async stopGathering(deviceId) {
+    const data = {action: 'stop', deviceId};
+    return this.req({path: '/api/gathering', method: 'POST', data})
+  }
+
+  async startTraining(optimize, deviceId) {
+    const data = {deviceId, optimize};
+    return this.req({path: '/api/training', method: 'POST', data})
+  }
+
+  async stopTraining() {
+    return this.req({path: '/api/training', method: 'DELETE'})
+  }
+
+  async getEntities() {
+    return this.req({path: '/api/entities', method: 'GET'})
+  }
+
+  connectWS() {
+    this.ws = new WebSocket('ws://localhost:8000/ws');
+
+    this.ws.onopen = this.onopenWS.bind(this);
+    this.ws.onmessage = this.onmessageWS.bind(this);
+  }
+
+  onopenWS(event) {
+    const msg = {type: 'ping'};
+    this.ws.send(JSON.stringify(msg));
+  }
+
+  onmessageWS(event) {
+    const {type, payload} = JSON.parse(event.data)
+    const whitelist = [
+      'pong',
+      'room',
+      'training',
+    ];
+    if (whitelist.includes(type)) {
+      this.dispatchEvent(new CustomEvent(type, {detail: payload}));
+    }
+  }
+}
+
+const restClient = new RESTClient()
+restClient.addEventListener('pong', () => console.log('pong'))
+restClient.addEventListener('room', msgRoomHandler)
+restClient.addEventListener('training', msgTrainingHandler)
+restClient.connectWS()
+
 let deviceId = null
 let isGathering = false
 let isTraining = false
-
-async function changeRoom(room) {
-  const data = {name: room, deviceId: deviceId};
-  await fetch('/api/room', {
-    method: 'POST',
-    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-}
-
-async function startGathering() {
-  const el =
-      document.querySelector('input[type=radio][name=gatheringMode]:checked')
-  const action = el.value
-  const data = {action, deviceId: deviceId};
-  await fetch('/api/gathering', {
-    method: 'POST',
-    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-}
-
-async function stopGathering() {
-  const data = {action: 'stop', deviceId: deviceId};
-  await fetch('/api/gathering', {
-    method: 'POST',
-    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-}
-
-async function startTraining() {
-  const data = {deviceId: deviceId};
-  await fetch('/api/training', {
-    method: 'POST',
-    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-}
-
-async function stopTraining() {
-  await fetch('/api/training', {
-    method: 'DELETE',
-    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'}
-  })
-}
 
 function empty(element) {
   while (element.firstElementChild) {
@@ -54,18 +89,10 @@ function empty(element) {
   }
 }
 
-async function getEntities() {
-  const res = await fetch('/api/entities', {
-    method: 'GET',
-  })
-  const data = await res.json()
-  console.log(data)
-  populateEntities(data)
-}
-
 function createDeviceHTMLEntry(device) {
   const li = document.createElement('li')
   const button = document.createElement('button')
+  button.classList.add(...'waves-effect waves-light btn-large'.split(' '))
   button.innerText = device.name
   li.appendChild(button)
   button.addEventListener('click', () => setEntity(device.id));
@@ -88,13 +115,30 @@ function setEntity(_deviceId) {
   console.log(`device id set to: ${deviceId}`)
 }
 
+function hideActionDetails() {
+  const elList = [...document.querySelectorAll('#actionDetails > div')];
+  for (const el of elList) {
+    el.classList.add('hidden')
+  }
+}
+
+function showActionDetails(id) {
+  hideActionDetails();
+  const el = document.getElementById(id)
+  el.classList.remove('hidden');
+}
+
 async function toggleGathering(el) {
   el.disabled = true
   if (isGathering) {
-    await stopGathering();
+    await restClient.stopGathering(deviceId);
   }
   else {
-    await startGathering();
+    showActionDetails('gatheringDetails');
+    const el =
+        document.querySelector('input[type=radio][name=gatheringMode]:checked')
+    const action = el.value;
+    await restClient.startGathering(action, deviceId);
   }
   isGathering = !isGathering
   el.innerText = isGathering ? 'Stop Gathering' : 'Start Gathering'
@@ -104,41 +148,59 @@ async function toggleGathering(el) {
 async function toggleTraining(el) {
   el.disabled = true;
   if (isGathering) {
-    await stopTraining();
+    await restClient.stopTraining();
   } else {
-    await startTraining();
+    const el =
+        document.querySelector('input[type=radio][name=trainingMode]:checked')
+    const optimize = el.value === 'Optimize'
+    showActionDetails('trainingDetails');
+    await restClient.startTraining(optimize, deviceId);
   }
   isTraining = !isTraining
   el.innerText = isTraining ? 'Stop Training' : 'Start Training'
   el.disabled = false
 }
 
-function msgRoomHandler(msg) {
+function msgRoomHandler(e) {
+  const msg = e.detail
   if (msg.deviceId !== deviceId) return;
   const el = document.getElementById('room')
   el.innerText = msg.room
 }
 
-function main() {}
+function msgTrainingHandler(e) {
+  const msg = e.detail
+  const trainingDetailsEl = document.getElementById('trainingDetails')
+  if (msg.state === 'started') {
+    trainingDetailsEl.classList.add('training')
+  }
+  if (msg.state === 'finished') {
+    const startStopTrainingBtnEl =
+        document.getElementById('startStopTrainingBtn')
+    isTraining = false
+    startStopTrainingBtnEl.innerText = 'Start Training'
+    startStopTrainingBtnEl.disabled = false
+    trainingDetailsEl.classList.remove('training')
+    const trainingDetailsTextEl =
+        document.querySelector('#trainingDetails .text')
+    trainingDetailsTextEl.innerText =
+        Object.keys(msg.stats)
+            .map(x => `${x}: ${msg.stats[x] || 'N/A'}`)
+            .join('\n')
+  }
+}
+
+async function changeRoom(room) {
+  await restClient.changeRoom(room, deviceId)
+}
+
+async function updateEntites() {
+  const entities = await restClient.getEntities()
+  populateEntities(entities)
+}
+
+async function main() {
+  await updateEntites()
+}
 
 addEventListener('DOMContentLoaded', main);
-
-const exampleSocket = new WebSocket('ws://localhost:8000/ws');
-
-exampleSocket.onopen = (event) => {
-  const msg = {type: 'ping'};
-
-  exampleSocket.send(JSON.stringify(msg));
-};
-
-exampleSocket.onmessage = (event) => {
-  const msg = JSON.parse(event.data)
-  switch (msg.type) {
-    case 'pong':
-      console.log('pong')
-      break;
-    case 'room':
-      msgRoomHandler(msg)
-      break;
-  }
-};
