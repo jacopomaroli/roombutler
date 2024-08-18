@@ -176,7 +176,7 @@ def get_prediction(model, nodes_list, msg):
         msg['entity']['measuredValues'].keys())}
     d = {x: [msg['entity']['measuredValues'][node2instanceMap[x]]['rssi']]
          for x in nodes_list}
-    X = pd.DataFrame.from_dict(d)
+    X = pd.DataFrame.from_dict(d).round(10)
     y_predicted = model.predict(X)
     enc2dec = {0: 'living room', 1: 'bedroom'}
     res_list = list(map(lambda x: enc2dec[x], y_predicted.tolist()))
@@ -218,7 +218,7 @@ def train_model(df, deviceId, optimize):
     df['room'] = df['room'].map({'living room': 0, 'bedroom': 1})
     df = df.drop('deviceId', axis=1)
 
-    X = df.drop('room', axis=1)
+    X = df.drop('room', axis=1).round(10)
     y = df['room']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
@@ -265,6 +265,7 @@ def train_model(df, deviceId, optimize):
 
 
 async def training_thread_main(deviceId, optimize):
+    global model
     global is_training
     msg = {
         'type': 'training',
@@ -280,6 +281,7 @@ async def training_thread_main(deviceId, optimize):
     train_model_ret = train_model(df, deviceId, optimize)
     rf, stats = itemgetter('rf', 'stats')(train_model_ret)
     pickle.dump(rf, open('data/random_forest.pickle', "wb"))
+    model = rf
     is_training = False
 
     msg = {
